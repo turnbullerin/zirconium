@@ -1,0 +1,19 @@
+one = "a"
+two = 2
+three = "three"
+four = " four five "
+five = 2020-01-01
+six = 6.66
+
+twelve = [13,14,15,16]
+seventeen = 2020-01-01T01:02:03
+blank = ""
+
+[seven]
+eleven = 11
+
+[seven.eight]
+nine = "nine"
+ten = "ten"
+
+# comment

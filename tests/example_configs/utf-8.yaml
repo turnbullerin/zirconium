@@ -1,0 +1,9 @@
+ascii_path: C:\my\ascii.txt
+cyrillic_path: C:\my\fileЧ.txt
+arabic_path: C:\my\fileص.txt
+latin_path: C:\my\fileÉ.txt
+greek_path: C:\my\fileΨ.txt
+traditional_chinese_path: C:\my\file碼.txt
+simplified_chinese_path: C:\my\file响.txt
+korean_path: C:\my\file탇.txt
+japanese_path: C:\my\file語.txt

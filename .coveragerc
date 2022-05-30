@@ -1,0 +1,4 @@
+[run]
+command_line = -m unittest
+include =
+    src/*
