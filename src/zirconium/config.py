@@ -65,7 +65,7 @@ class ApplicationConfig(MutableDeepDict):
                 break
             # Check for escape character $ before ${}
             check_escape = 1
-            for i in range(found, pos, -1):
+            for i in range(found - 1, pos if pos > 0 else -1, -1):
                 if value[i] == "$":
                     check_escape += 1
                     continue

@@ -52,18 +52,37 @@ class TestConfig(unittest.TestCase):
     def test_environment_replacement(self):
         config = zirconium.ApplicationConfig()
         os.environ["VAR_NAME"] = "var"
+        os.environ["lower_var"] = "var2"
+        os.environ["${INNER}"] = "inner"
+        os.environ["}end"] = "end"
         config.load_from_dict({
             "simple_replace": "${VAR_NAME}",
             "no_replace": "$${VAR_NAME}",
             "complex_replace": "$$$$${VAR_NAME}",
             "complex_noreplace": "$$$${VAR_NAME}",
-            "default_use": "${VAR_NAME_2=test}"
+            "default_use": "${VAR_NAME_2=test}",
+            "no_end": "${VAR_NAME_NO_END",
+            "suffix_replace": "${VAR_NAME} VAR_NAME",
+            "prefix_replace": "VAR_NAME  ${VAR_NAME}",
+            "middle_replace": "VN ${VAR_NAME} VN",
+            "lower_var": "${LOWER_VAR}",
+            "upper_var": "${var_name}",
+            "complex_inner": "${${INNER}}}",
+            "weird_bracket": "${}}end}"
         })
         self.assertEqual(config["simple_replace"], "var")
         self.assertEqual(config["default_use"], "test")
         self.assertEqual(config["complex_replace"], "$$var")
         self.assertEqual(config["complex_noreplace"], "$${VAR_NAME}")
         self.assertEqual(config["no_replace"], "${VAR_NAME}")
+        self.assertEqual(config["no_end"], "${VAR_NAME_NO_END")
+        self.assertEqual(config["lower_var"], "var2")
+        self.assertEqual(config["upper_var"], "var")
+        self.assertEqual(config["suffix_replace"], "var VAR_NAME")
+        self.assertEqual(config["middle_replace"], "VN var VN")
+        self.assertEqual(config["prefix_replace"], "VAR_NAME  var")
+        self.assertEqual(config["weird_bracket"], "end")
+        self.assertEqual(config["complex_inner"], "inner")
 
     def test_list_access(self):
         path = Path(__file__).parent / "example_configs/basic.yaml"
