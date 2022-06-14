@@ -1,4 +1,12 @@
 import threading
+import pymitter
+from autoinject import injector
+
+
+def _config_decorator(func):
+    ee = injector.get(pymitter.EventEmitter)
+    ee.once("zirconium.configure", func)
+    return func
 
 
 class MutableDeepDict:
