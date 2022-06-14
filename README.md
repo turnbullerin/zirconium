@@ -77,9 +77,6 @@ def add_config(config):
     # Load a file path from environment variable, will override ALL registered files
     config.register_file_from_environ("MYAPP_CONFIG_FILE")
     
-    # Load value from keyring, equivalent to config["database"]["password"] = keyring.get_password("db_service", "db_user")
-    config.register_keyring_var("db_service", "db_user", "database", "password")
-    
     # Load values direct from the environment, will override ALL files including those specific in environment variables
     # sets config["database"]["password"]
     config.register_environ_var("MYAPP_DATABASE_PASSWORD", "database", "password")
