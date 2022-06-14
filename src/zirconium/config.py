@@ -7,6 +7,12 @@ from pathlib import Path
 from autoinject import injector, CacheStrategy
 from .parsers import JsonConfigParser, IniConfigParser, YamlConfigParser, TomlConfigParser, CfgConfigParser
 from .utils import MutableDeepDict
+import importlib.util
+
+if importlib.util.find_spec("importlib.metadata"):
+    from importlib.metadata import entry_points
+else:
+    from importlib_metadata import entry_points
 
 
 @injector.register("zirconium.config.ApplicationConfig", caching_strategy=CacheStrategy.GLOBAL_CACHE)
@@ -33,6 +39,14 @@ class ApplicationConfig(MutableDeepDict):
         self._cached_gets = {}
         self.registry_lock = threading.RLock()
         self.cache_lock = threading.RLock()
+        if include_entry_points:
+            auto_register = entry_points(group="zirconium.parsers")
+            for ep in auto_register:
+                self.parsers.append(ep.load()())
+            auto_register = entry_points(group="zirconium.config")
+            for ep in auto_register:
+                registrar_func = ep.load()
+                registrar_func(self)
 
     def get(self, *key, default=None, coerce=None, blank_to_none=False, raw=False, raise_error=False):
         key = self._expand_key(key)
