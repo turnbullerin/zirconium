@@ -29,6 +29,7 @@ Zirconium is a powerful configuration tool for loading and using configuration i
 * Setuptools-like CFG files
 * INI files (following the defaults of the configparser module)
 * Environment variables
+* The keyring module
 
 ### Priority Order
 
@@ -37,7 +38,8 @@ Later items in this list will override previous items
 1. Files registered with `register_default_file()`, in ascending order by `weight` (or order called)
 2. Files registered with `register_file()`, in ascending order by `weight`
 3. Files from environment variables registered with `register_file_from_environ()`, in ascending order by `weight`
-4. Values from environment variables registered with `register_environ_var()`
+4. Passwords loaded from keyring registered with `register_keyring_var()`
+5. Values from environment variables registered with `register_environ_var()`
 
 
 ## Example Usage
@@ -75,6 +77,9 @@ def add_config(config):
     
     # Load a file path from environment variable, will override ALL registered files
     config.register_file_from_environ("MYAPP_CONFIG_FILE")
+    
+    # Load value from keyring, equivalent to config["database"]["password"] = keyring.get_password("db_service", "db_user")
+    config.register_keyring_var("db_service", "db_user", "database", "password")
     
     # Load values direct from the environment, will override ALL files including those specific in environment variables
     # sets config["database"]["password"]

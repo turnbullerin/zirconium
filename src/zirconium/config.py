@@ -22,7 +22,7 @@ class ApplicationConfig(MutableDeepDict):
     ee: pymitter.EventEmitter = None
 
     @injector.construct
-    def __init__(self, include_entry_points=True):
+    def __init__(self, manual_init=False):
         super().__init__()
         self.encoding = "utf-8"
         self.parsers = [
@@ -43,7 +43,7 @@ class ApplicationConfig(MutableDeepDict):
         self._cached_gets = {}
         self.registry_lock = threading.RLock()
         self.cache_lock = threading.RLock()
-        if include_entry_points:
+        if not manual_init:
             auto_register = entry_points(group="zirconium.parsers")
             for ep in auto_register:
                 self.parsers.append(ep.load()())
@@ -51,8 +51,8 @@ class ApplicationConfig(MutableDeepDict):
             for ep in auto_register:
                 registrar_func = ep.load()
                 registrar_func(self)
-        self.ee.emit("zirconium.configure")
-        self.init()
+            self.ee.emit("zirconium.configure")
+            self.init()
 
     def get(self, *key, default=None, coerce=None, blank_to_none=False, raw=False, raise_error=False):
         key = self._expand_key(key)

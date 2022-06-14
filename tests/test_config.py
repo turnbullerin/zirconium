@@ -11,7 +11,7 @@ class TestConfig(unittest.TestCase):
 
     def test_one_file(self):
         path = Path(__file__).parent / "example_configs/basic.yaml"
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.register_file(path)
         config.init()
         self.assertTrue("one" in config)
@@ -29,7 +29,7 @@ class TestConfig(unittest.TestCase):
     def test_two_files(self):
         path = Path(__file__).parent / "example_configs/basic.yaml"
         path2 = Path(__file__).parent / "example_configs/override.toml"
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
             "base": "one"
         })
@@ -50,7 +50,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(config["seventeen"], datetime.datetime(2020, 1, 1, 1, 2, 3))
 
     def test_environment_replacement(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         os.environ["VAR_NAME"] = "var"
         os.environ["lower_var"] = "var2"
         os.environ["${INNER}"] = "inner"
@@ -67,8 +67,9 @@ class TestConfig(unittest.TestCase):
             "middle_replace": "VN ${VAR_NAME} VN",
             "lower_var": "${LOWER_VAR}",
             "upper_var": "${var_name}",
-            "complex_inner": "${${INNER}}}",
-            "weird_bracket": "${}}end}"
+            "complex_inner": r"${${INNER\}}",
+            "weird_bracket": r"${\}end}",
+            "weird_bracket_default": r"${\}end2=bar}"
         })
         self.assertEqual(config["simple_replace"], "var")
         self.assertEqual(config["default_use"], "test")
@@ -83,10 +84,11 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(config["prefix_replace"], "VAR_NAME  var")
         self.assertEqual(config["weird_bracket"], "end")
         self.assertEqual(config["complex_inner"], "inner")
+        self.assertEqual(config["weird_bracket_default"], "bar")
 
     def test_list_access(self):
         path = Path(__file__).parent / "example_configs/basic.yaml"
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.register_file(path)
         config.init()
         self.assertEqual(config[("one",)], "a")
@@ -103,7 +105,7 @@ class TestConfig(unittest.TestCase):
         self.assertFalse(("test", "two") in config)
 
     def test_integer_index(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
             1: "one"
         })
@@ -112,7 +114,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(config[1], "one")
 
     def test_len(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         self.assertEqual(len(config), 0)
         config.load_from_dict({
             "one": 1,
@@ -124,7 +126,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(len(config), 3)
 
     def test_iter(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
             "one": 1,
             "two": 2,
@@ -139,7 +141,7 @@ class TestConfig(unittest.TestCase):
         self.assertFalse("four" in lst)
 
     def test_deep_update(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
             "one": 1,
             "two": 2,
@@ -167,7 +169,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(config["two"], 2)
 
     def test_update(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
             "one": 1,
             "two": 2,
@@ -192,7 +194,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(config["two"], 2)
 
     def test_get(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
             "one": 1
         })
@@ -203,7 +205,7 @@ class TestConfig(unittest.TestCase):
         self.assertRaises(ValueError, config.get, "four", raise_error=True)
 
     def test_dict_load(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
             "one": {
                 "two": "three"
@@ -214,7 +216,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(config["one", "two"], "three")
 
     def test_int_coerce(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
             "str": "1234",
             "int": 12,
@@ -229,7 +231,7 @@ class TestConfig(unittest.TestCase):
         self.assertRaises(ValueError, config.as_int, "bad")
 
     def test_float_coerce(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
             "int": 123,
             "str_int": "1234",
@@ -252,7 +254,7 @@ class TestConfig(unittest.TestCase):
         self.assertRaises(ValueError, config.as_float, "bad")
 
     def test_decimal_coerce(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
             "int": 123,
             "str_int": "1234",
@@ -273,7 +275,7 @@ class TestConfig(unittest.TestCase):
         self.assertRaises(decimal.InvalidOperation, config.as_decimal, "bad")
 
     def test_bool_coerce(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
             "zero": 0,
             "blank": "",
@@ -305,7 +307,7 @@ class TestConfig(unittest.TestCase):
         self.assertTrue(config.as_bool("negative"))
 
     def test_date_coerce(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         est = datetime.timezone(-datetime.timedelta(hours=5), "EST")
         config.load_from_dict({
             "blank": "",
@@ -325,7 +327,7 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(config.as_date("datetimetz_obj"), datetime.date(2020, 1, 1))
 
     def test_datetime_coerce(self):
-        config = zirconium.ApplicationConfig()
+        config = zirconium.ApplicationConfig(True)
         est = datetime.timezone(-datetime.timedelta(hours=5), "EST")
         config.load_from_dict({
             "blank": "",
