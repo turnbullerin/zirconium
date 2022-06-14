@@ -29,7 +29,6 @@ Zirconium is a powerful configuration tool for loading and using configuration i
 * Setuptools-like CFG files
 * INI files (following the defaults of the configparser module)
 * Environment variables
-* The keyring module
 
 ### Priority Order
 
