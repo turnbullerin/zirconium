@@ -2,6 +2,7 @@ import os
 import decimal
 import datetime
 import threading
+import pymitter
 from pathlib import Path
 
 from autoinject import injector, CacheStrategy
@@ -18,7 +19,10 @@ else:
 @injector.register("zirconium.config.ApplicationConfig", caching_strategy=CacheStrategy.GLOBAL_CACHE)
 class ApplicationConfig(MutableDeepDict):
 
-    def __init__(self):
+    ee: pymitter.EventEmitter = None
+
+    @injector.construct
+    def __init__(self, include_entry_points=True):
         super().__init__()
         self.encoding = "utf-8"
         self.parsers = [
@@ -47,6 +51,8 @@ class ApplicationConfig(MutableDeepDict):
             for ep in auto_register:
                 registrar_func = ep.load()
                 registrar_func(self)
+        self.ee.emit("zirconium.configure")
+        self.init()
 
     def get(self, *key, default=None, coerce=None, blank_to_none=False, raw=False, raise_error=False):
         key = self._expand_key(key)
