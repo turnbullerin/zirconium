@@ -38,7 +38,6 @@ Later items in this list will override previous items
 1. Files registered with `register_default_file()`, in ascending order by `weight` (or order called)
 2. Files registered with `register_file()`, in ascending order by `weight`
 3. Files from environment variables registered with `register_file_from_environ()`, in ascending order by `weight`
-4. Passwords loaded from keyring registered with `register_keyring_var()`
 5. Values from environment variables registered with `register_environ_var()`
 
 
