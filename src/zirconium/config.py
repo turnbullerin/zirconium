@@ -74,49 +74,76 @@ class ApplicationConfig(MutableDeepDict):
     @staticmethod
     def resolve_environment_references(value: str) -> str:
         pos = 0
-        # Escape rule is dollar signs that precede a bracket
+        # Escape rule for $ is dollar signs that precede a bracket
         # ${var}
         # $${not_a_var}, equivalent to string ${not_a_var}
         # $$${var}, equivalent to "${}".format(os.environ["var"])
         # $$$${not_a var}, equivalent to string $${not_a_var}
-        while "${" in value[pos:]:
-            found = value.index("${", pos)
-            if "}" not in value[found+2:]:
-                break
-            # Check for escape character $ before ${}
-            check_escape = 1
-            for i in range(found - 1, pos if pos > 0 else -1, -1):
-                if value[i] == "$":
-                    check_escape += 1
+        #
+        # ${{\}} equivalent to os.environ["{}"]
+        # ${{\\\}} equivalent to os.environ["{\}"]
+        state = "buffering"
+        ref_buffer = ""
+        resolved = ""
+        for i in range(0, len(value)):
+            c = value[i]
+            if c == "$":
+                if state == "buffering":
+                    state = "opening_ref"
                     continue
-                else:
-                    break
-            new_value = value[0:found - check_escape + 1]
-            while check_escape > 1:
-                new_value += "$"
-                check_escape -= 2
-            if check_escape == 0:
-                value = new_value + value[found+1:]
-                pos = found + 1
-            else:
-                end = value.index("}", found + 2)
-                val = ""
-                name = value[found + 2:end]
-                if "=" in name:
-                    val = name[name.find("=")+1:]
-                    name = name[0:name.find("=")]
-                # first check however we wrote it
-                if name in os.environ:
-                    val = os.environ[name]
-                # local variables first in UNIX
-                elif name.lower() in os.environ:
-                    val = os.environ[name]
-                # global variables next
-                elif name.upper() in os.environ:
-                    val = os.environ[name]
-                value = new_value + val + value[end+1:]
-                pos = found
-        return value
+                elif state == "opening_ref":
+                    resolved += "$"
+                    state = "buffering"
+                    continue
+            elif c == "{":
+                if state == "opening_ref":
+                    state = "in_ref"
+                    continue
+            elif c == "\\":
+                if state == "in_ref":
+                    state = "escaping_in_ref"
+                    continue
+                elif state == "escaping_in_ref":
+                    ref_buffer += "\\"
+                    state = "in_ref"
+                    continue
+            elif c == "}":
+                if state == "escaping_in_ref":
+                    ref_buffer += "}"
+                    state = "in_ref"
+                    continue
+                elif state == "in_ref":
+                    resolved += ApplicationConfig.parse_env_reference(ref_buffer)
+                    ref_buffer = ""
+                    state = "buffering"
+                    continue
+            if state == "buffering":
+                resolved += c
+            elif state == "in_ref":
+                ref_buffer += c
+            elif state == "escaping_in_ref":
+                ref_buffer += "\\" + c
+                state = "in_ref"
+        if ref_buffer:
+            resolved += "${" + ref_buffer
+        return resolved
+
+    @staticmethod
+    def parse_env_reference(name):
+        val = ""
+        if "=" in name:
+            val = name[name.find("=") + 1:]
+            name = name[0:name.find("=")]
+        # first check however we wrote it
+        if name in os.environ:
+            val = os.environ[name]
+            # local variables first in UNIX
+        elif name.lower() in os.environ:
+            val = os.environ[name]
+            # global variables next
+        elif name.upper() in os.environ:
+            val = os.environ[name]
+        return val
 
     def as_date(self, key, default=None, raw=False):
         dt = self.get(key, default=default, blank_to_none=True, raw=raw)
