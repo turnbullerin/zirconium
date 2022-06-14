@@ -4,18 +4,31 @@ from autoinject import injector
 
 
 def _config_decorator(func):
+    """ Decorate a function with this to add configuration files """
     ee = injector.get(pymitter.EventEmitter)
     ee.once("zirconium.configure", func)
     return func
 
 
 class MutableDeepDict:
+    """ Deep dictionary class that supports tuple-like access to deep properties """
 
     def __init__(self, base_dict=None):
+        """ Constructor """
         self.d = base_dict if base_dict else {}
         self.lock = threading.RLock()
 
     def _navigate_to_item(self, key, create=False):
+        """ Navigate to an item in the tree structure specified by key
+
+            :param key: The key to navigate to
+            :type key: str or tuple
+            :param create: If set to true, the entry will be created
+            :type create: bool
+            :returns: A tuple, with the first item being the dictionary structure and the second being the key in that
+                structure that represents the tail element of key. Both will be None if a parent key does not exist
+            :rtype: tuple(dict, str)
+        """
         try:
             if isinstance(key, str):
                 return self.d, key
@@ -33,30 +46,37 @@ class MutableDeepDict:
             return self.d, key
 
     def __setitem__(self, key, value):
+        """ Thread-safe __setitem__ implementation """
         with self.lock:
             parent, k = self._navigate_to_item(key, True)
             parent[k] = value
 
     def __getitem__(self, key):
+        """ __getitem__ implementation"""
         return self.get(key, raise_error=True)
 
     def __delitem__(self, key):
+        """ Thread-safe __delitem__ implementation"""
         with self.lock:
             parent, k = self._navigate_to_item(key)
             if parent:
                 del parent[k]
 
     def __contains__(self, key):
+        """ __contains__ implementation """
         parent, k = self._navigate_to_item(key)
         return parent is not None and k in parent
 
     def __len__(self):
+        """ __len__ implementation """
         return len(self.d)
 
     def __iter__(self):
+        """ __iter__ implementation """
         return iter(self.d)
 
     def deep_update(self, d):
+        """ Similar to update(), but will merge dictionaries at depth. Thread-safe. """
         with self.lock:
             for key in d.keys():
                 if key in self.d and MutableDeepDict.is_dict_like(d[key]) and MutableDeepDict.is_dict_like(self.d[key]):
@@ -66,10 +86,13 @@ class MutableDeepDict:
                     self.d[key] = d[key]
 
     def update(self, d):
+        """ Thread-safe implementation of dict.update() """
         with self.lock:
             self.d.update(d)
 
     def _expand_key(self, key):
+        """ Given a key, expands it to an ordered list to be used with _navigate_to_item() or other methods that
+        leverage it """
         expanded = []
         for k in key:
             if isinstance(k, str) or not hasattr(k, "__iter__"):
@@ -79,6 +102,8 @@ class MutableDeepDict:
         return expanded
 
     def get(self, *key, default=None, raise_error=False):
+        """ Implementation of dict.get(). Added a raise_error parameter which causes ValueError to be raised if the
+            key does not exist, otherwise the default is returned. """
         key = self._expand_key(key)
         parent, k = self._navigate_to_item(key)
         if ((parent is None) or (not k in parent)) and raise_error:
@@ -89,12 +114,15 @@ class MutableDeepDict:
         return value
 
     def keys(self):
+        """ Implementation of dict.keys() """
         return self.d.keys()
 
     def values(self):
+        """ Implementation of dict.values() """
         return self.d.values()
 
     def pop(self, key, default):
+        """ Thread-safe implementation of dict.pop() that works on deep arrays. """
         with self.lock:
             parent, k = self._navigate_to_item(key)
             if parent:
@@ -103,6 +131,7 @@ class MutableDeepDict:
 
     @staticmethod
     def is_dict_like(d):
+        """ Checks if d is dict-like """
         if isinstance(d, dict):
             return True
         if isinstance(d, MutableDeepDict):
