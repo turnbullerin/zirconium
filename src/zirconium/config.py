@@ -34,7 +34,6 @@ else:
     from importlib_metadata import entry_points
 
 
-
 @injector.register("zirconium.config.ApplicationConfig", caching_strategy=CacheStrategy.GLOBAL_CACHE)
 class ApplicationConfig(MutableDeepDict):
 
@@ -65,12 +64,12 @@ class ApplicationConfig(MutableDeepDict):
         if not manual_init:
             auto_register = entry_points(group="zirconium.parsers")
             for ep in auto_register:
-                self.parsers.append(ep.load()())
+                self.parsers.append(ep.load()(self))
             auto_register = entry_points(group="zirconium.config")
             for ep in auto_register:
                 registrar_func = ep.load()
                 registrar_func(self)
-            self.ee.emit("zirconium.configure")
+            self.ee.emit("zirconium.configure", self)
             self.init()
 
     def get(self, *key, default=None, coerce=None, blank_to_none=False, raw=False, raise_error=False):
