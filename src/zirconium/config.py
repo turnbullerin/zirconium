@@ -3,17 +3,36 @@ import decimal
 import datetime
 import threading
 import pymitter
+import sys
 from pathlib import Path
 
 from autoinject import injector, CacheStrategy
 from .parsers import JsonConfigParser, IniConfigParser, YamlConfigParser, TomlConfigParser, CfgConfigParser
 from .utils import MutableDeepDict
-import importlib.util
 
+# Metadata entrypoint support depends on Python version
+import importlib.util
 if importlib.util.find_spec("importlib.metadata"):
-    from importlib.metadata import entry_points
+    # Python 3.10 supports entry_points(group=?)
+    if sys.version_info.minor >= 10:
+        from importlib.metadata import entry_points
+    # Python 3.8 and 3.9 have metadata, but don't support the keyword argument
+    else:
+        from importlib.metadata import entry_points as _entry_points
+
+        def entry_points(group=None):
+            eps = _entry_points()
+            if group is None:
+                return eps
+            elif group in eps:
+                return eps[group]
+            else:
+                return []
+
+# Backwards support for Python 3.7
 else:
     from importlib_metadata import entry_points
+
 
 
 @injector.register("zirconium.config.ApplicationConfig", caching_strategy=CacheStrategy.GLOBAL_CACHE)
