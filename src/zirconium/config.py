@@ -2,13 +2,12 @@ import os
 import decimal
 import datetime
 import threading
-import pymitter
 import sys
 from pathlib import Path
 
 from autoinject import injector, CacheStrategy
 from .parsers import JsonConfigParser, IniConfigParser, YamlConfigParser, TomlConfigParser, CfgConfigParser
-from .utils import MutableDeepDict
+from .utils import MutableDeepDict, _AppConfigHooks
 
 # Metadata entrypoint support depends on Python version
 import importlib.util
@@ -37,7 +36,7 @@ else:
 @injector.register("zirconium.config.ApplicationConfig", caching_strategy=CacheStrategy.GLOBAL_CACHE)
 class ApplicationConfig(MutableDeepDict):
 
-    ee: pymitter.EventEmitter = None
+    ach: _AppConfigHooks = None
 
     @injector.construct
     def __init__(self, manual_init=False):
@@ -69,7 +68,7 @@ class ApplicationConfig(MutableDeepDict):
             for ep in auto_register:
                 registrar_func = ep.load()
                 registrar_func(self)
-            self.ee.emit("zirconium.configure", self)
+            self.ach.execute_hooks(self)
             self.init()
 
     def get(self, *key, default=None, coerce=None, blank_to_none=False, raw=False, raise_error=False):
@@ -228,6 +227,9 @@ class ApplicationConfig(MutableDeepDict):
     def as_path(self, key, default=None, raw=False):
         return self.get(key, default=default, coerce=Path, blank_to_none=True, raw=raw)
 
+    def as_dict(self, key, default=None):
+        return self.get(key, default=default, coerce=MutableDeepDict, blank_to_none=True, raw=True)
+
     def set_default_encoding(self, enc):
         self.encoding = enc
 
@@ -258,7 +260,7 @@ class ApplicationConfig(MutableDeepDict):
 
     def _next_weight(self, key):
         if self.file_registry[key]:
-            return max(x[1] for x in self.file_registry["regulars"]) + 1
+            return max(x[1] for x in self.file_registry[key]) + 1
         return 0
 
     def register_environ_var(self, env_var_name, *target_config):

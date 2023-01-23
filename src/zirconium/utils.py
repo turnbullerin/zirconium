@@ -1,12 +1,26 @@
 import threading
-import pymitter
 from autoinject import injector
 
 
-def _config_decorator(func):
+@injector.injectable_global
+class _AppConfigHooks:
+    """ Global storage of configuration hooks for ApplicationConfig prior to instantiation. """
+
+    def __init__(self):
+        self.hooks = []
+
+    def add_hook(self, c):
+        self.hooks.append(c)
+
+    def execute_hooks(self, cfg):
+        for hook in self.hooks:
+            hook(cfg)
+
+
+@injector.inject
+def _config_decorator(func, ach: _AppConfigHooks = None):
     """ Decorate a function with this to add configuration files """
-    ee = injector.get(pymitter.EventEmitter)
-    ee.once("zirconium.configure", func)
+    ach.add_hook(func)
     return func
 
 

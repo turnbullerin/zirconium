@@ -24,7 +24,7 @@ Zirconium is a powerful configuration tool for loading and using configuration i
 
 * Database tables (with SQLAlchemy installed)
 * YAML (with pyyaml installed)
-* TOML (with toml installed)
+* TOML (with toml installed or Python >= 3.11)
 * JSON
 * Setuptools-like CFG files
 * INI files (following the defaults of the configparser module)
@@ -94,3 +94,14 @@ class NeedsConfiguration:
         pass
 
 ```
+
+## Change Log
+
+### Version 1.0.0
+
+- Stable release after extensive testing on my own
+- Python 3.11's tomllib now supported for parsing TOML files
+- Using `pymitter` to manage configuration registration was proving problematic when called from
+  a different thread than where the application config object was instatiated. Replaced it with a more robust solution.
+- Fixed a bug for registering default files
+- Added `as_dict()` to the configuration object which returns an instance of `MutableDeepDict`.

@@ -116,8 +116,8 @@ class DbConfigParser:
         import sqlalchemy.sql
         conn_string, table, key_col, val_col = self._split_path(path)
         engine = sqlalchemy.create_engine(conn_string)
-        metadata = sqlalchemy.MetaData(bind=engine)
-        metadata.reflect()
+        metadata = sqlalchemy.MetaData()
+        metadata.reflect(bind=engine)
         if table not in metadata.tables:
             logging.getLogger(__name__).warning("Table {} does not exist".format(table))
             return {}
