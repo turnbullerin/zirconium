@@ -3,6 +3,7 @@ import json
 import configparser
 import importlib.util
 from .utils import MutableDeepDict
+import sys
 
 
 class YamlConfigParser:
@@ -26,15 +27,22 @@ class YamlConfigParser:
 class TomlConfigParser:
 
     def __init__(self):
-        self.package_installed = importlib.util.find_spec("toml") is not None
+        self.package_lib = None
+        if sys.version_info[0] == 3 and sys.version_info[1] >= 11:
+            self.package_lib = "core"
+        elif importlib.util.find_spec("toml") is not None:
+            self.package_lib = "third-party"
 
     def handles(self, path: str):
-        return self.package_installed and path.lower().endswith(".toml")
+        return self.package_lib is not None and path.lower().endswith(".toml")
 
     def read_dict(self, path, encoding):
-        import toml
+        if self.package_lib == "core":
+            import tomllib
+        elif self.package_lib == "third-party":
+            import toml as tomllib
         with open(path, "r", encoding=encoding) as h:
-            return toml.loads(h.read())
+            return tomllib.loads(h.read())
 
 
 class JsonConfigParser:
