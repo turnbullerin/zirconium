@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 import zirconium.sproviders as sp
 import logging
+import typing as t
+
 
 from autoinject import injector, CacheStrategy
 from .parsers import JsonConfigParser, IniConfigParser, YamlConfigParser, TomlConfigParser, CfgConfigParser
@@ -176,7 +178,7 @@ class ApplicationConfig(MutableDeepDict):
             return None
         return self._secret_providers[secret_provider](secret_path)
 
-    def as_date(self, key, default=None, raw=False):
+    def as_date(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[datetime.date]:
         dt = self.get(key, default=default, blank_to_none=True, raw=raw)
         if isinstance(dt, datetime.datetime):
             return datetime.date(dt.year, dt.month, dt.day)
@@ -189,7 +191,7 @@ class ApplicationConfig(MutableDeepDict):
                 dt = datetime.datetime.fromisoformat(dt)
                 return datetime.date(dt.year, dt.month, dt.day)
 
-    def as_datetime(self, key, default=None, tzinfo=None, raw=False):
+    def as_datetime(self, key: t.Union[t.Iterable, t.AnyStr], default=None, tzinfo=None, raw=False) -> t.Optional[datetime.datetime]:
         dt = self.get(key, default=default, blank_to_none=True, raw=raw)
         if dt is None:
             return None
@@ -223,31 +225,37 @@ class ApplicationConfig(MutableDeepDict):
                 )
             return dt
 
-    def as_int(self, key, default=None, raw=False):
+    def as_int(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[int]:
         return self.get(key, default=default, coerce=int, blank_to_none=True, raw=raw)
 
-    def as_float(self, key, default=None, raw=False):
+    def as_float(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[float]:
         return self.get(key, default=default, coerce=float, blank_to_none=True, raw=raw)
 
-    def as_decimal(self, key, default=None, raw=False):
+    def as_decimal(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[decimal.Decimal]:
         return self.get(key, default=default, coerce=decimal.Decimal, blank_to_none=True, raw=raw)
 
-    def as_str(self, key, default=None, raw=False):
+    def as_str(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[str]:
         return self.get(key, default=default, coerce=str, raw=raw)
 
-    def as_bool(self, key, default=None, raw=False):
+    def as_bool(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[bool]:
         return bool(self.get(key, default=default, raw=raw))
 
-    def as_path(self, key, default=None, raw=False):
+    def as_path(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[Path]:
         return self.get(key, default=default, coerce=Path, blank_to_none=True, raw=raw)
 
-    def as_dict(self, key, default=None):
+    def as_set(self, key: t.Union[t.Iterable, t.AnyStr], default=None) -> t.Optional[set]:
+        return self.get(key, default=default, coerce=set, blank_to_none=True, raw=True)
+
+    def as_list(self, key: t.Union[t.Iterable, t.AnyStr], default=None) -> t.Optional[list]:
+        return self.get(key, default=default, coerce=list, blank_to_none=True, raw=True)
+
+    def as_dict(self, key: t.Union[t.Iterable, t.AnyStr], default=None) -> t.Optional[dict]:
         return self.get(key, default=default, coerce=MutableDeepDict, blank_to_none=True, raw=True)
 
     def set_default_encoding(self, enc):
         self.encoding = enc
 
-    def is_truthy(self, key):
+    def is_truthy(self, key: t.Union[t.Iterable, t.AnyStr]) -> bool:
         parent, k = self._navigate_to_item(key)
         return parent is not None and k in parent and bool(parent[k])
 
@@ -256,6 +264,17 @@ class ApplicationConfig(MutableDeepDict):
 
     def register_secret_provider(self, name, callback):
         self._secret_providers[name] = callback
+
+    def register_files(self,
+                       search_directories: t.Iterable[t.Union[Path, t.AnyStr]],
+                       files: t.Optional[t.Iterable[str]] = None,
+                       default_files: t.Optional[t.Iterable[str]] = None):
+        for sd in search_directories:
+            sd = sd if isinstance(sd, Path) else Path(sd)
+            for file in files:
+                self.register_file(sd / file)
+            for default_file in default_files:
+                self.register_default_file(sd / default_file)
 
     def register_default_file(self, file_path, weight=None, parser=None, encoding=None):
         with self.registry_lock:
