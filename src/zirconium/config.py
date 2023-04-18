@@ -83,7 +83,7 @@ class ApplicationConfig(MutableDeepDict):
 
     def get(self, *key, default=None, coerce=None, blank_to_none=False, raw=False, raise_error=False):
         key = self._expand_key(key)
-        full_key = ".".join([str(x) for x in key])
+        full_key = ".".join([str(x) for x in key]) + (str(coerce) if coerce else "")
         if full_key in self._cached_gets:
             return self._cached_gets[full_key]
         with self.cache_lock:

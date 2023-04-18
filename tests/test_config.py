@@ -250,6 +250,14 @@ class TestConfig(unittest.TestCase):
         self.assertIsNone(config.as_int("blank"))
         self.assertRaises(ValueError, config.as_int, "bad")
 
+    def test_cache_by_type(self):
+        config = zirconium.ApplicationConfig(True)
+        config.load_from_dict({
+            "int": 12,
+        })
+        self.assertEqual(config.as_str("int"), "12")
+        self.assertEqual(config.as_int("int"), 12)
+
     def test_float_coerce(self):
         config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
