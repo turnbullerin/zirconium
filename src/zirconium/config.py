@@ -4,6 +4,10 @@ import datetime
 import threading
 import sys
 from pathlib import Path
+import zirconium.sproviders as sp
+import logging
+import typing as t
+
 
 from autoinject import injector, CacheStrategy
 from .parsers import JsonConfigParser, IniConfigParser, YamlConfigParser, TomlConfigParser, CfgConfigParser
@@ -41,6 +45,7 @@ class ApplicationConfig(MutableDeepDict):
     @injector.construct
     def __init__(self, manual_init=False):
         super().__init__()
+        self.log = logging.getLogger("zirconium")
         self.encoding = "utf-8"
         self.parsers = [
             TomlConfigParser(),
@@ -49,11 +54,16 @@ class ApplicationConfig(MutableDeepDict):
             IniConfigParser(),
             JsonConfigParser(),
         ]
+        self._secret_providers = {}
+        if sp.AZURE_ENABLED:
+            self._secret_providers["azure_key_vault"] = sp.azure_key_vault
         self.file_registry = {
             "defaults": [],
             "regulars": [],
             "environment": [],
         }
+        self.secrets_env_map = {}
+        self.secrets_map = {}
         self.environment_map = {}
         self.loaded_files = []
         self._init_flag = False
@@ -82,14 +92,13 @@ class ApplicationConfig(MutableDeepDict):
                 if blank_to_none and value == "":
                     value = None
                 if (not raw) and isinstance(value, str):
-                    value = ApplicationConfig.resolve_environment_references(value)
+                    value = self.resolve_environment_references(value)
                 if coerce and value is not None:
                     value = coerce(value)
                 self._cached_gets[full_key] = value
             return self._cached_gets[full_key]
 
-    @staticmethod
-    def resolve_environment_references(value: str) -> str:
+    def resolve_environment_references(self, value: str) -> str:
         pos = 0
         # Escape rule for $ is dollar signs that precede a bracket
         # ${var}
@@ -130,7 +139,7 @@ class ApplicationConfig(MutableDeepDict):
                     state = "in_ref"
                     continue
                 elif state == "in_ref":
-                    resolved += ApplicationConfig.parse_env_reference(ref_buffer)
+                    resolved += self.parse_env_reference(ref_buffer, "")
                     ref_buffer = ""
                     state = "buffering"
                     continue
@@ -145,24 +154,31 @@ class ApplicationConfig(MutableDeepDict):
             resolved += "${" + ref_buffer
         return resolved
 
-    @staticmethod
-    def parse_env_reference(name):
-        val = ""
+    def parse_env_reference(self, name, default_val=None):
         if "=" in name:
-            val = name[name.find("=") + 1:]
+            default_val = name[name.find("=") + 1:]
             name = name[0:name.find("=")]
-        # first check however we wrote it
-        if name in os.environ:
-            val = os.environ[name]
-            # local variables first in UNIX
-        elif name.lower() in os.environ:
-            val = os.environ[name]
-            # global variables next
-        elif name.upper() in os.environ:
-            val = os.environ[name]
-        return val
+        actual_val = self.get_env_var(name)
+        return default_val if actual_val is None else actual_val
 
-    def as_date(self, key, default=None, raw=False):
+    def get_env_var(self, env_var_name):
+        if env_var_name in os.environ:
+            return os.environ[env_var_name]
+        elif env_var_name.lower() in os.environ:
+            return os.environ[env_var_name.lower()]
+        elif env_var_name.upper() in os.environ:
+            return os.environ[env_var_name.upper()]
+        elif env_var_name in self.secrets_env_map:
+            return self.get_secret(*self.secrets_env_map[env_var_name])
+        return None
+
+    def get_secret(self, secret_path, secret_provider):
+        if secret_provider not in self._secret_providers:
+            self.log.warning(f"Secret provider {secret_provider} not found")
+            return None
+        return self._secret_providers[secret_provider](secret_path)
+
+    def as_date(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[datetime.date]:
         dt = self.get(key, default=default, blank_to_none=True, raw=raw)
         if isinstance(dt, datetime.datetime):
             return datetime.date(dt.year, dt.month, dt.day)
@@ -175,7 +191,7 @@ class ApplicationConfig(MutableDeepDict):
                 dt = datetime.datetime.fromisoformat(dt)
                 return datetime.date(dt.year, dt.month, dt.day)
 
-    def as_datetime(self, key, default=None, tzinfo=None, raw=False):
+    def as_datetime(self, key: t.Union[t.Iterable, t.AnyStr], default=None, tzinfo=None, raw=False) -> t.Optional[datetime.datetime]:
         dt = self.get(key, default=default, blank_to_none=True, raw=raw)
         if dt is None:
             return None
@@ -209,36 +225,56 @@ class ApplicationConfig(MutableDeepDict):
                 )
             return dt
 
-    def as_int(self, key, default=None, raw=False):
+    def as_int(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[int]:
         return self.get(key, default=default, coerce=int, blank_to_none=True, raw=raw)
 
-    def as_float(self, key, default=None, raw=False):
+    def as_float(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[float]:
         return self.get(key, default=default, coerce=float, blank_to_none=True, raw=raw)
 
-    def as_decimal(self, key, default=None, raw=False):
+    def as_decimal(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[decimal.Decimal]:
         return self.get(key, default=default, coerce=decimal.Decimal, blank_to_none=True, raw=raw)
 
-    def as_str(self, key, default=None, raw=False):
+    def as_str(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[str]:
         return self.get(key, default=default, coerce=str, raw=raw)
 
-    def as_bool(self, key, default=None, raw=False):
+    def as_bool(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[bool]:
         return bool(self.get(key, default=default, raw=raw))
 
-    def as_path(self, key, default=None, raw=False):
+    def as_path(self, key: t.Union[t.Iterable, t.AnyStr], default=None, raw=False) -> t.Optional[Path]:
         return self.get(key, default=default, coerce=Path, blank_to_none=True, raw=raw)
 
-    def as_dict(self, key, default=None):
+    def as_set(self, key: t.Union[t.Iterable, t.AnyStr], default=None) -> t.Optional[set]:
+        return self.get(key, default=default, coerce=set, blank_to_none=True, raw=True)
+
+    def as_list(self, key: t.Union[t.Iterable, t.AnyStr], default=None) -> t.Optional[list]:
+        return self.get(key, default=default, coerce=list, blank_to_none=True, raw=True)
+
+    def as_dict(self, key: t.Union[t.Iterable, t.AnyStr], default=None) -> t.Optional[dict]:
         return self.get(key, default=default, coerce=MutableDeepDict, blank_to_none=True, raw=True)
 
     def set_default_encoding(self, enc):
         self.encoding = enc
 
-    def is_truthy(self, key):
+    def is_truthy(self, key: t.Union[t.Iterable, t.AnyStr]) -> bool:
         parent, k = self._navigate_to_item(key)
         return parent is not None and k in parent and bool(parent[k])
 
     def register_parser(self, parser):
         self.parsers.append(parser)
+
+    def register_secret_provider(self, name, callback):
+        self._secret_providers[name] = callback
+
+    def register_files(self,
+                       search_directories: t.Iterable[t.Union[Path, t.AnyStr]],
+                       files: t.Optional[t.Iterable[str]] = None,
+                       default_files: t.Optional[t.Iterable[str]] = None):
+        for sd in search_directories:
+            sd = sd if isinstance(sd, Path) else Path(sd)
+            for file in files:
+                self.register_file(sd / file)
+            for default_file in default_files:
+                self.register_default_file(sd / default_file)
 
     def register_default_file(self, file_path, weight=None, parser=None, encoding=None):
         with self.registry_lock:
@@ -276,6 +312,13 @@ class ApplicationConfig(MutableDeepDict):
                     self.clear()
                     self.init()
 
+    def register_secret_as_environ_var(self, secret_path, secret_provider, env_var_name):
+        self.secrets_env_map[env_var_name] = (secret_path, secret_provider)
+
+    def register_secret_config(self, secret_path, secret_provider, *target_config):
+        secret_provider = secret_provider.lower()
+        self.secrets_map[f"{secret_path}{secret_provider}"] = (secret_path, secret_provider, target_config)
+
     def init(self):
         with self.registry_lock:
             if not self._init_flag:
@@ -287,11 +330,22 @@ class ApplicationConfig(MutableDeepDict):
                     self.load_file(file, parser, enc)
                 self.file_registry["environment"].sort(key=lambda x: x[1])
                 for env_name, weight, parser, enc in self.file_registry["environment"]:
-                    if env_name in os.environ:
-                        self.load_file(os.environ.get(env_name), parser, enc)
+                    env_val = self.get_env_var(env_name)
+                    if env_val:
+                        self.load_file(env_val, parser, enc)
                 for env_name, target_config in self.environment_map:
-                    if env_name in os.environ:
-                        self.config[target_config] = os.environ.get(env_name)
+                    env_val = self.get_env_var(env_name)
+                    if env_val is not None:
+                        self.log.info(f"Setting config from environment variable {env_name}")
+                        self.config[target_config] = env_val
+                    else:
+                        self.log.debug(f"No environment variable set for {env_name}")
+                for key in self.secrets_map:
+                    spath, sprovider, target_config = self._secret_providers[key]
+                    secret_val = self.get_secret(sprovider, spath)
+                    if secret_val is not None:
+                        self.log.info(f"Loading secret from {sprovider} {spath}")
+                        self.config[target_config] = secret_val
                 self._init_flag = True
 
     def load_file(self, file_path, parser=None, encoding=None):
@@ -299,16 +353,24 @@ class ApplicationConfig(MutableDeepDict):
             if encoding is None:
                 encoding = self.encoding
             file_path = Path(file_path).expanduser().absolute()
-            if file_path.exists() and file_path not in self.loaded_files:
+            if file_path in self.loaded_files:
+                return
+            if file_path.exists():
                 if parser:
+                    self.log.info(f"Loading config file {file_path}")
                     self.load_from_dict(parser.read_dict(file_path, encoding))
                     self.loaded_files.append(file_path)
                 else:
                     for parser in self.parsers:
                         if parser.handles(file_path.name):
+                            self.log.info(f"Loading config file {file_path}")
                             self.load_from_dict(parser.read_dict(file_path, encoding))
                             self.loaded_files.append(file_path)
                             break
+                    else:
+                        self.log.warning(f"No parser found for {file_path}")
+            else:
+                self.log.info(f"No config file found at {file_path}")
 
     def load_from_dict(self, d):
         self.deep_update(d)

@@ -97,6 +97,11 @@ class NeedsConfiguration:
 
 ## Change Log
 
+### Version 1.1.0
+- Added `as_list()` and `as_set()` which return as expected
+- Type-hinting added to the `as_X()` methods to help with usage in your IDE
+- Added support for `register_files()` which takes a set of directories to use and registers a set of files and default files in each.
+
 ### Version 1.0.0
 
 - Stable release after extensive testing on my own

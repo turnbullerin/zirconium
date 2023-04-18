@@ -131,10 +131,10 @@ class DbConfigParser:
         k = getattr(t.c, key_col)
         v = getattr(t.c, val_col)
         with engine.connect() as conn:
-            q = t.select().with_only_columns([k, v]).order_by(sqlalchemy.sql.expression.func.length(k))
+            q = t.select().with_only_columns(k, v).order_by(sqlalchemy.sql.expression.func.length(k))
             d = MutableDeepDict()
             for row in conn.execute(q).fetchall():
-                d[row[key_col].split(".")] = row[val_col]
+                d[row[0]] = row[1]
             return d
 
     def _split_path(self, path):
