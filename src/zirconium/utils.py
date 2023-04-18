@@ -89,6 +89,10 @@ class MutableDeepDict:
         """ __iter__ implementation """
         return iter(self.d)
 
+    def clear(self):
+        """Clear the dictionary of all entries."""
+        self.d = {}
+
     def deep_update(self, d):
         """ Similar to update(), but will merge dictionaries at depth. Thread-safe. """
         with self.lock:

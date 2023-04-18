@@ -113,6 +113,26 @@ class TestConfig(unittest.TestCase):
         self.assertFalse(2 in config)
         self.assertEqual(config[1], "one")
 
+    def test_clear(self):
+        config = zirconium.ApplicationConfig(True)
+        config.load_from_dict({
+            1: "one",
+            2: "two"
+        })
+        self.assertTrue(1 in config)
+        self.assertTrue(2 in config)
+        self.assertEqual(config[1], "one")
+        self.assertEqual(config[2], "two")
+        config.reload_config()
+        self.assertFalse(1 in config)
+        self.assertFalse(2 in config)
+        config.load_from_dict({
+            1: "new_one"
+        })
+        self.assertTrue(1 in config)
+        self.assertFalse(2 in config)
+        self.assertEqual(config[1], "new_one")
+
     def test_len(self):
         config = zirconium.ApplicationConfig(True)
         self.assertEqual(len(config), 0)

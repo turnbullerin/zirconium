@@ -266,6 +266,16 @@ class ApplicationConfig(MutableDeepDict):
     def register_environ_var(self, env_var_name, *target_config):
         self.environment_map[env_var_name] = target_config
 
+    def reload_config(self):
+        # We take all three locks to prevent any weird multi-threaded behaviour from happening. All writes are blocked until we are done the re-load except our own.
+        with self.lock:
+            with self.registry_lock:
+                with self.cache_lock:
+                    self._cached_gets = {}
+                    self._init_flag = False
+                    self.clear()
+                    self.init()
+
     def init(self):
         with self.registry_lock:
             if not self._init_flag:
