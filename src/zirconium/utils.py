@@ -1,5 +1,121 @@
 import threading
 from autoinject import injector
+import datetime
+import typing as t
+from urllib.parse import urlparse
+
+
+BYTE_UNITS = {
+    # Bits
+    "bit": 0.125,
+    # Bytes
+    "b": 1,
+    # Standard prefixes
+    "kib": 1024,
+    "mib": 1048576,
+    "gib": 1073741824,
+    "tib": 1099511627776,
+    "pib": 1125899906842624,
+    "eib": 1152921504606846976,
+    # Short forms translate to standard prefixes
+    "k": 1024,
+    "m": 1048576,
+    "g": 1073741824,
+    "t": 1099511627776,
+    "p": 1125899906842624,
+    "e": 1152921504606846976,
+    # Allow for hard drive/metric sizing (but with option to disable)
+    "kb": 1000,
+    "mb": 1000000,
+    "gb": 1000000000,
+    "tb": 1000000000000,
+    "pb": 1000000000000000,
+    "eb": 1000000000000000000,
+}
+
+
+def parse_for_units(val: str, max_unit_len: int, default_units: str) -> t.Tuple[t.Union[int, float], str]:
+    val = val.strip()
+    if max_unit_len < 0:
+        raise ValueError("Unit length must be positive")
+    unit_len = -1 * min(max_unit_len, len(val))
+    while unit_len < 0 and (val[unit_len].isdigit() or val[unit_len] == "."):
+        unit_len += 1
+    actual_val = val[:unit_len].strip() if unit_len < 0 else val
+    units = val[unit_len:].strip() if unit_len < 0 else default_units
+    return (float(actual_val), units) if "." in actual_val else (int(actual_val), units)
+
+
+def convert_to_bytes(val: t.Union[float, int], units: str, disallow_metric_prefixes: bool = False) -> t.Union[float, int]:
+    units = units.lower()
+    # Convert metric prefixes to standard representations
+    if disallow_metric_prefixes and len(units) == 2:
+        units = f"{units[0]}i{units[1]}"
+    if units not in BYTE_UNITS:
+        raise ValueError(f"Unrecognized units for bytes: {units}")
+    return val * BYTE_UNITS[units]
+
+
+def convert_to_timedelta(val: t.Union[float, int], units: str) -> datetime.timedelta:
+    units = units.lower()
+    if units == "s":
+        return datetime.timedelta(seconds=val)
+    elif units == "m":
+        return datetime.timedelta(minutes=val)
+    elif units == "h":
+        return datetime.timedelta(hours=val)
+    elif units == "d":
+        return datetime.timedelta(days=val)
+    elif units == "w":
+        return datetime.timedelta(weeks=val)
+    elif units == "us":
+        return datetime.timedelta(microseconds=val)
+    elif units == "ms":
+        return datetime.timedelta(milliseconds=val)
+    else:
+        raise ValueError(f"Unknown units for timedelta: {units}")
+
+
+@injector.inject
+def print_config(obfuscate_keys=None, cfg: "zirconium.config.ApplicationConfig" = None):
+    print("----- Loaded Files -----")
+    for f in cfg.loaded_files:
+        print(f)
+    print("----- Configuration Values -----")
+    _print_dict(cfg.d, obfuscate_keys=obfuscate_keys)
+
+
+def _print_dict(d, prefix='  ', level=0, parent_prefix=None, obfuscate_keys=None):
+    for key in d:
+        full_path = list(parent_prefix) if parent_prefix else []
+        full_path.append(key)
+        full_path = tuple(full_path)
+        val = d[key]
+        if obfuscate_keys is not None and full_path in obfuscate_keys:
+            print(f"{prefix * level}{key}: {'*' * len(val)}")
+            continue
+        if isinstance(val, dict):
+            print(f"{prefix * level}{key}: ")
+            _print_dict(val, prefix, level + 1, full_path, obfuscate_keys)
+        elif isinstance(val, set) or isinstance(val, list) or isinstance(val, tuple):
+            print(f"{prefix * level}{key}: ")
+            for entry in val:
+                print(f"{prefix * (level+1)}- {_obfuscate_entry(entry)}")
+        else:
+            print(f"{prefix * level}{key}: {_obfuscate_entry(val)}")
+
+
+def _obfuscate_entry(entry):
+    if "://" in entry:
+        try:
+            uri = urlparse(entry)
+            if uri.password:
+                qs = f"?{uri.query}" if uri.query else ""
+                fs = f"#{uri.fragment}" if uri.fragment else ""
+                return f"{uri.scheme}://{uri.username}:{'*' * len(uri.password)}@{uri.hostname}{uri.path}{qs}{fs}"
+        except ValueError:
+            pass
+    return entry
 
 
 @injector.injectable_global

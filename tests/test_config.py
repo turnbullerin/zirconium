@@ -30,7 +30,7 @@ class TestConfig(unittest.TestCase):
         path = Path(__file__).parent / "example_configs/basic.yaml"
         path2 = Path(__file__).parent / "example_configs/override.toml"
         config = zirconium.ApplicationConfig(True)
-        config.load_from_dict({
+        config.set_defaults({
             "base": "one"
         })
         config.register_file(path)
@@ -71,6 +71,7 @@ class TestConfig(unittest.TestCase):
             "weird_bracket": r"${\}end}",
             "weird_bracket_default": r"${\}end2=bar}"
         })
+
         self.assertEqual(config["simple_replace"], "var")
         self.assertEqual(config["default_use"], "test")
         self.assertEqual(config["complex_replace"], "$$var")
@@ -112,6 +113,26 @@ class TestConfig(unittest.TestCase):
         self.assertTrue(1 in config)
         self.assertFalse(2 in config)
         self.assertEqual(config[1], "one")
+
+    def test_get_ref(self):
+        config = zirconium.ApplicationConfig(True)
+        config.set_defaults({
+            1: "one"
+        })
+        config.init()
+        r = config.get_ref(1)
+        self.assertIsInstance(r, zirconium.config._ConfigRef)
+        self.assertEqual(r.raw_value(), "one")
+        self.assertEqual(r.raw_value(), "one")
+        config.load_from_dict({
+            1: "two"
+        })
+        self.assertEqual(r.raw_value(), "one")
+        config.reload_config()
+        config.load_from_dict({
+            1: "two"
+        })
+        self.assertEqual(r.raw_value(), "two")
 
     def test_clear(self):
         config = zirconium.ApplicationConfig(True)
@@ -235,6 +256,99 @@ class TestConfig(unittest.TestCase):
         self.assertTrue(("one" ,"two") in config)
         self.assertEqual(config["one", "two"], "three")
 
+    def test_bytes_coerce(self):
+        config = zirconium.ApplicationConfig(True)
+        config.load_from_dict({
+            "raw": 512,
+            "raw_str": "512",
+            "for_def": 512,
+            "bits": "512bit",
+            "bytes": "512b",
+            "kib": "2kib",
+            "mib": "2mib",
+            "gib": "2gib",
+            "tib": "2tib",
+            "pib": "2pib",
+            "eib": "2eib",
+            "k": "2K",
+            "m": "2M",
+            "g": "2G",
+            "t": "2T",
+            "p": "2P",
+            "e": "2E",
+            "kb": "2KB",
+            "mb": "2MB",
+            "gb": "2GB",
+            "tb": "2TB",
+            "pb": "2PB",
+            "eb": "2EB",
+            "no": "2WB",
+            "very_no": "Foobar"
+        })
+        self.assertEqual(config.as_bytes("raw"), 512)
+        self.assertEqual(config.as_bytes("for_def", default_units="kib"), 512 * 1024)
+        self.assertEqual(config.as_bytes("raw_str"), 512)
+        self.assertEqual(config.as_bytes("bits"), 64.0)
+        self.assertEqual(config.as_bytes("bytes"), 512)
+        self.assertEqual(config.as_bytes("kib"), 1024 * 2)
+        self.assertEqual(config.as_bytes("mib"), 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("gib"), 1024 * 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("tib"), 1024 * 1024 * 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("pib"), 1024 * 1024 * 1024 * 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("eib"), 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("k"), 1024 * 2)
+        self.assertEqual(config.as_bytes("m"), 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("g"), 1024 * 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("t"), 1024 * 1024 * 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("p"), 1024 * 1024 * 1024 * 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("e"), 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("kb"), 1024 * 2)
+        self.assertEqual(config.as_bytes("mb"), 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("gb"), 1024 * 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("tb"), 1024 * 1024 * 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("pb"), 1024 * 1024 * 1024 * 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("eb"), 1024 * 1024 * 1024 * 1024 * 1024 * 1024 * 2)
+        self.assertEqual(config.as_bytes("kb", allow_metric=True), 1000 * 2)
+        self.assertEqual(config.as_bytes("mb", allow_metric=True), 1000 * 1000 * 2)
+        self.assertEqual(config.as_bytes("gb", allow_metric=True), 1000 * 1000 * 1000 * 2)
+        self.assertEqual(config.as_bytes("tb", allow_metric=True), 1000 * 1000 * 1000 * 1000 * 2)
+        self.assertEqual(config.as_bytes("pb", allow_metric=True), 1000 * 1000 * 1000 * 1000 * 1000 * 2)
+        self.assertEqual(config.as_bytes("eb", allow_metric=True), 1000 * 1000 * 1000 * 1000 * 1000 * 1000 * 2)
+
+    def test_timedelta_coerce(self):
+        config = zirconium.ApplicationConfig(True)
+        config.load_from_dict({
+            "def": 234,
+            "def_min": 234,
+            "test_s": "23s",
+            "test_m": "23m",
+            "test_h": "23h",
+            "test_d": "23d",
+            "test_w": "23w",
+            "test_w1s": "23 w",
+            "test_w3s": "   23     w  ",
+            "test_us": "23us",
+            "test_ms": "23ms",
+            "test_str_no": "23",
+            "test_err": "23n",
+            "test_big_err": "foobar"
+        })
+        self.assertEqual(config.as_timedelta("def"), datetime.timedelta(seconds=234))
+        self.assertEqual(config.as_timedelta("def_min", default_units="m"), datetime.timedelta(minutes=234))
+        self.assertEqual(config.as_timedelta("test_s"), datetime.timedelta(seconds=23))
+        self.assertEqual(config.as_timedelta("test_m"), datetime.timedelta(minutes=23))
+        self.assertEqual(config.as_timedelta("test_h"), datetime.timedelta(hours=23))
+        self.assertEqual(config.as_timedelta("test_d"), datetime.timedelta(days=23))
+        self.assertEqual(config.as_timedelta("test_w"), datetime.timedelta(weeks=23))
+        self.assertEqual(config.as_timedelta("test_w1s"), datetime.timedelta(weeks=23))
+        self.assertEqual(config.as_timedelta("test_w3s"), datetime.timedelta(weeks=23))
+        self.assertEqual(config.as_timedelta("test_us"), datetime.timedelta(microseconds=23))
+        self.assertEqual(config.as_timedelta("test_ms"), datetime.timedelta(milliseconds=23))
+        self.assertEqual(config.as_timedelta("test_str_no"), datetime.timedelta(seconds=23))
+        self.assertRaises(ValueError, config.as_timedelta, "test_err")
+        self.assertRaises(ValueError, config.as_timedelta, "test_big_err")
+
+
     def test_int_coerce(self):
         config = zirconium.ApplicationConfig(True)
         config.load_from_dict({
@@ -249,6 +363,30 @@ class TestConfig(unittest.TestCase):
         self.assertIsNone(config.as_int("nope"))
         self.assertIsNone(config.as_int("blank"))
         self.assertRaises(ValueError, config.as_int, "bad")
+
+    def test_int_ref_coerce(self):
+        config = zirconium.ApplicationConfig(True)
+        config.load_from_dict({
+            "str": "1234",
+            "str_int": 1234,
+            "int": 12,
+            "falsy": 0,
+            "bad": "modern general",
+            "nope": None,
+            "blank": "",
+        })
+        self.assertEqual(config.as_int_ref("str"), config.as_int_ref("str_int"))
+        self.assertNotEqual(config.as_int_ref("str"), config.as_int_ref("int"))
+        self.assertEqual(config.as_int_ref("str"), 1234)
+        self.assertEqual(config.as_int_ref("int"), 12)
+        self.assertIsNone(config.as_int_ref("nope").raw_value())
+        self.assertIsNone(config.as_int_ref("blank").raw_value())
+        self.assertTrue(config.as_int_ref("nope").is_none())
+        self.assertTrue(config.as_int_ref("blank").is_none())
+        self.assertFalse(config.as_int_ref("str").is_none())
+        self.assertRaises(ValueError, config.as_int_ref("bad").raw_value)
+        self.assertTrue(config.as_int_ref("int"))
+        self.assertFalse(config.as_int_ref("falsy"))
 
     def test_cache_by_type(self):
         config = zirconium.ApplicationConfig(True)
