@@ -4,10 +4,23 @@ import decimal
 import os
 from pathlib import Path
 
+from autoinject import injector
 import zirconium
 
 
 class TestConfig(unittest.TestCase):
+
+    @injector.test_case()
+    @zirconium.test_with_config(("foo", "bar"), "hello world")
+    @zirconium.test_with_config(("foo", "bar"), "hello world2")
+    @zirconium.test_with_config(("foo", "bar2"), "zoink")
+    @zirconium.test_with_config({"foo": {"bar3": "hello world3"}})
+    def test_test_case(self):
+        @injector.inject
+        def _test_inject(cfg: zirconium.ApplicationConfig = None):
+            self.assertEqual(cfg.get(("foo", "bar")), "hello world")
+            self.assertEqual(cfg.get(("foo", "bar2")), "zoink")
+            self.assertEqual(cfg.get(("foo", "bar3")), "hello world3")
 
     def test_one_file(self):
         path = Path(__file__).parent / "example_configs/basic.yaml"

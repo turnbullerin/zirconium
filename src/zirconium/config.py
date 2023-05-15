@@ -506,3 +506,25 @@ class ApplicationConfig(MutableDeepDict):
     def load_from_dict(self, d):
         self.deep_update(d)
 
+
+def test_with_config(key: t.Union[list, str, set, tuple, dict], value: t.Any = None):
+
+    def _inner(fn):
+        if not hasattr(fn, "_autoinject_fixtures"):
+            fn._autoinject_fixtures = {}
+        if ApplicationConfig not in fn._autoinject_fixtures:
+            def _build_app_config():
+                ac = ApplicationConfig(True)
+                ac.set_defaults(fn._zirconium_test_config)
+                ac.init()
+            fn._autoinject_fixtures[ApplicationConfig] = (None, _build_app_config)
+        if not hasattr(fn, "_zirconium_test_config"):
+            fn._zirconium_test_config = MutableDeepDict()
+        if isinstance(key, dict):
+            fn._zirconium_test_config.update(key)
+        else:
+            fn._zirconium_test_config[key] = value
+
+        return fn
+
+    return _inner

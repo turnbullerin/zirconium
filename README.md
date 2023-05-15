@@ -181,8 +181,47 @@ To call a method on reload, you can add it via `config.on_load(callable)`. If `c
 different thread or process than the one where `reload_config()` is called, it is your responsibility to manage this
 communication (e.g. use `threading.Event` to notify the thread that the configuration needs to be reloaded).
 
+## Testing classes that use ApplicationConfig
+
+Unit test functions decorated with `autoinject.injector.test_case` can declare configuration using `zirconium.test_with_config(key, val)`
+to declare configuration for testing. For example, this test case should pass:
+
+```python
+from autoinject import injector
+import zirconium as zr 
+import unittest 
+
+class MyTestCase(unittest.TestCase):
+
+  # This is essential since we use autoinject's test_case() to handle the ApplicationConfig fixture
+  @injector.test_case 
+  # Declare a single value
+  @zr.test_with_config(("foo", "bar"), "hello world")
+  # You can repeat the decorator to declare multiple values
+  @zr.test_with_config(("some", "value"), "what")
+  # You can also pass a dict instead of a key, value tuple
+  @zr.test_with_config({
+    "foo": {
+      "bar2": "hello world #2"
+    }
+  })
+  def test_something(self):
+    
+    # As a simple example.
+    @injector.inject 
+    def do_something(cfg: zr.ApplicationConfig = None):
+        self.assertEqual(cfg.as_str(("foo", "bar")), "hello world")
+        self.assertEqual(cfg.as_str(("some", "value")), "what")
+```
+
+Note that this pattern replaces all configuration values with the ones declared in decorators, so previously loaded
+values will not be passed into your test function nor will they be passed between test functions.
 
 ## Change Log
+
+### Version 1.2.1
+- Test cases can now use the fixture `@zirconium.test_with_config(key: t.Iterable, value: t.Any)` to inject test 
+  configuration.
 
 ### Version 1.2.0
 - Added `as_bytes()` which will accept values like `2M` and return the value converted into bytes (e.g. `2097152`. If 
