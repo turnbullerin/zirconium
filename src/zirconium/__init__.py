@@ -3,4 +3,4 @@ from .parsers import JsonConfigParser, IniConfigParser, YamlConfigParser, TomlCo
 from .utils import _config_decorator as configure
 from .utils import print_config, convert_to_bytes, convert_to_timedelta
 
-__version__ = "1.2.1"
+__version__ = "1.2.4"

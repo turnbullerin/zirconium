@@ -454,7 +454,7 @@ class ApplicationConfig(MutableDeepDict):
                     env_val = self.get_env_var(env_name)
                     if env_val:
                         self.load_file(new_conf, env_val, parser, enc)
-                for env_name, target_config in self.environment_map:
+                for env_name, target_config in self.environment_map.items():
                     env_val = self.get_env_var(env_name)
                     if env_val is not None:
                         self.log.info(f"Setting config from environment variable {env_name}")
@@ -508,7 +508,7 @@ class ApplicationConfig(MutableDeepDict):
 
 
 def test_with_config(key: t.Union[list, str, set, tuple, dict], value: t.Any = None):
-
+    """Create a test fixture for ApplicationConfig (if one doesn't exist) and set a config value for it"""
     def _inner(fn):
         if not hasattr(fn, "_autoinject_fixtures"):
             fn._autoinject_fixtures = {}
@@ -517,6 +517,7 @@ def test_with_config(key: t.Union[list, str, set, tuple, dict], value: t.Any = N
                 ac = ApplicationConfig(True)
                 ac.set_defaults(fn._zirconium_test_config)
                 ac.init()
+                return ac
             fn._autoinject_fixtures[ApplicationConfig] = (None, _build_app_config)
         if not hasattr(fn, "_zirconium_test_config"):
             fn._zirconium_test_config = MutableDeepDict()

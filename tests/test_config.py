@@ -21,6 +21,56 @@ class TestConfig(unittest.TestCase):
             self.assertEqual(cfg.get(("foo", "bar")), "hello world")
             self.assertEqual(cfg.get(("foo", "bar2")), "zoink")
             self.assertEqual(cfg.get(("foo", "bar3")), "hello world3")
+        _test_inject()
+
+    def test_env_map(self):
+        config = zirconium.ApplicationConfig(True)
+        os.environ.setdefault("ONE", "1")
+        config.register_environ_map({
+            "ONE": ("var", "one"),
+            "TWO": ("var", "two")
+        })
+        config.init()
+        self.assertEqual(config.as_str(("var", "one")), "1")
+        self.assertIsNone(config.as_str(("var", "two"), default=None))
+
+    def test_precedence(self):
+        config = zirconium.ApplicationConfig(True)
+        os.environ.setdefault("TEST_A", "EA")
+        os.environ.setdefault("TEST_B", "EB")
+        os.environ.setdefault("TEST_C", "EC")
+        os.environ.setdefault("TEST_D", "ED")
+
+        # Defaults
+        config.set_defaults({
+            "CONFIG_A": "DA",
+            "CONFIG_B": "DB",
+            "CONFIG_C": "DC",
+            "CONFIG_D": "DD",
+        })
+
+        # Default file
+        config.register_default_file(Path(__file__).parent / "example_configs/override2.yaml")
+
+        # Regular file
+        config.register_file(Path(__file__).parent / "example_configs/override3.yaml")
+
+        # Environment variables
+        config.register_environ_var("TEST_A", "CONFIG_A")
+
+        config.init()
+
+        self.assertEqual(config["CONFIG_A"], "EA")
+        self.assertEqual(config["CONFIG_B"], "O3B")
+        self.assertEqual(config["CONFIG_C"], "O2C")
+        self.assertEqual(config["CONFIG_D"], "DD")
+
+    def test_env(self):
+        config = zirconium.ApplicationConfig(True)
+        os.environ.setdefault("FOOBAR", "bonjour")
+        config.register_environ_var("FOOBAR", "hello")
+        config.init()
+        self.assertEqual(config.as_str("hello"), "bonjour")
 
     def test_one_file(self):
         path = Path(__file__).parent / "example_configs/basic.yaml"

@@ -106,7 +106,7 @@ def _print_dict(d, prefix='  ', level=0, parent_prefix=None, obfuscate_keys=None
 
 
 def _obfuscate_entry(entry):
-    if "://" in entry:
+    if isinstance(entry, str) and "://" in entry:
         try:
             uri = urlparse(entry)
             if uri.password:
