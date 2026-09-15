@@ -5,6 +5,8 @@ from urllib.parse import urlparse
 
 from autoinject import injector
 
+DT = t.TypeVar("DT")
+
 BYTE_UNITS = {
     # Bits
     "bit": 0.125,
@@ -112,7 +114,7 @@ def _obfuscate_entry(entry):
             if uri.password:
                 qs = f"?{uri.query}" if uri.query else ""
                 fs = f"#{uri.fragment}" if uri.fragment else ""
-                return f"{uri.scheme}://{uri.username}:{'*' * len(uri.password)}@{uri.hostname}{uri.path}{qs}{fs}"
+                return f"{uri.scheme}://{uri.username}:{'*' * len(uri.password or "")}@{uri.hostname}{uri.path}{qs}{fs}"
         except ValueError:
             pass
     return entry
@@ -143,12 +145,21 @@ def _config_decorator(func, ach: _AppConfigHooks = None):
 class MutableDeepDict:
     """ Deep dictionary class that supports tuple-like access to deep properties """
 
-    def __init__(self, base_dict=None):
+    def __init__(self,
+                 base_dict: t.Optional[t.MutableMapping] = None):
         """ Constructor """
         self.d = base_dict if base_dict else {}
         self.lock = threading.RLock()
 
-    def _navigate_to_item(self, key, create=False):
+    def __str__(self):
+        return str(self.d)
+
+    def __repr__(self):
+        return repr(self.d)
+
+    def _navigate_to_item(self,
+                          key: t.Union[str, t.Sequence[str]],
+                          create: bool = False) -> tuple[t.Optional[t.MutableMapping], t.Optional[t.Union[str, t.Sequence[str]]]]:
         """ Navigate to an item in the tree structure specified by key
 
             :param key: The key to navigate to
@@ -224,24 +235,31 @@ class MutableDeepDict:
         with self.lock:
             self.d.update(d)
 
-    def _expand_key(self, key):
+    def _expand_key(self, key: t.Sequence[t.Union[str, t.Sequence[str]]]) -> list[str]:
         """ Given a key, expands it to an ordered list to be used with _navigate_to_item() or other methods that
         leverage it """
-        expanded = []
-        for k in key:
-            if isinstance(k, str) or not hasattr(k, "__iter__"):
-                expanded.append(k)
+        def _expand(_key) -> t.Generator[str, None, None]:
+            if isinstance(_key, str):
+                yield _key
             else:
-                expanded.extend(k)
-        return expanded
+                for k in _key:
+                    if isinstance(k, str) or not hasattr(k, "__iter__"):
+                        yield k
+                    else:
+                        for sub_k in k:
+                            yield from _expand(sub_k)
+        return [*(x for x in _expand(key))]
 
-    def get(self, *key, default=None, raise_error=False):
+    def get(self,
+            *key: t.Union[str, t.Sequence[str]],
+            default = None,
+            raise_error: bool = False) -> t.Any:
         """ Implementation of dict.get(). Added a raise_error parameter which causes ValueError to be raised if the
             key does not exist, otherwise the default is returned. """
-        key = self._expand_key(key)
-        parent, k = self._navigate_to_item(key)
+        keys = self._expand_key(key)
+        parent, k = self._navigate_to_item(keys)
         if ((parent is None) or (not k in parent)) and raise_error:
-            raise ValueError("No such key: {}".format(".".join(key)))
+            raise ValueError("No such key: {}".format(".".join(keys)))
         value = default
         if parent and k in parent:
             value = parent[k]

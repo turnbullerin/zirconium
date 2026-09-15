@@ -1,4 +1,4 @@
 pyyaml
 sqlalchemy
 toml
-autoinject>=1.3.2
+autoinject>=2.0.0

@@ -23,7 +23,7 @@ class TestYamlFiles(unittest.TestCase):
     def test_basic_file(self):
         path = Path(__file__).parent / "example_configs/basic.yaml"
         handler = zirconium.YamlConfigParser()
-        self.assertTrue(handler.handles(path.name))
+        self.assertTrue(handler.handles(path))
         config = handler.read_dict(path, "ascii")
         self.assertIsInstance(config, dict)
         self.assertEqual(config["one"], "a")
@@ -76,7 +76,7 @@ class TestTomlFiles(unittest.TestCase):
     def test_basic_file(self):
         path = Path(__file__).parent / "example_configs/basic.toml"
         handler = zirconium.TomlConfigParser()
-        self.assertTrue(handler.handles(path.name))
+        self.assertTrue(handler.handles(path))
         config = handler.read_dict(path, "ascii")
         self.assertIsInstance(config, dict)
         self.assertEqual(config["one"], "a")
@@ -128,7 +128,7 @@ class TestJsonFiles(unittest.TestCase):
     def test_basic_file(self):
         path = Path(__file__).parent / "example_configs/basic.json"
         handler = zirconium.JsonConfigParser()
-        self.assertTrue(handler.handles(path.name))
+        self.assertTrue(handler.handles(path))
         config = handler.read_dict(path, "ascii")
         self.assertIsInstance(config, dict)
         self.assertEqual(config["one"], "a")
@@ -191,7 +191,7 @@ class TestConfigFiles(unittest.TestCase):
     def test_basic_file(self):
         path = Path(__file__).parent / "example_configs/basic.cfg"
         handler = zirconium.CfgConfigParser()
-        self.assertTrue(handler.handles(path.name))
+        self.assertTrue(handler.handles(path))
         config = handler.read_dict(path, "ascii")
         self.assertIsInstance(config, dict)
         self.assertEqual(config["test"]["one"], "a")
@@ -222,7 +222,7 @@ class TestIniFiles(unittest.TestCase):
     def test_basic_file(self):
         path = Path(__file__).parent / "example_configs/basic.ini"
         handler = zirconium.IniConfigParser()
-        self.assertTrue(handler.handles(path.name))
+        self.assertTrue(handler.handles(path))
         config = handler.read_dict(path, "ascii")
         self.assertIsInstance(config, dict)
         self.assertEqual(config["test"]["one"], "a")

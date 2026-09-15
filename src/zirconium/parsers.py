@@ -2,19 +2,35 @@ import logging
 import json
 import configparser
 import importlib.util
-from zirconium.utils import MutableDeepDict
+import pathlib
 import sys
+import typing as t
+
+from zirconium.utils import MutableDeepDict
 
 
-class YamlConfigParser:
+
+import abc
+class GenericParser(abc.ABC):
+    @abc.abstractmethod
+    def handles(self, path: pathlib.Path) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def read_dict(self, path: pathlib.Path, encoding: str) -> t.Mapping:
+        raise NotImplementedError
+
+
+
+class YamlConfigParser(GenericParser):
 
     def __init__(self):
         self.package_installed = importlib.util.find_spec("yaml") is not None
 
-    def handles(self, path: str):
-        return self.package_installed and path.lower().endswith(".yaml")
+    def handles(self, path: pathlib.Path) -> bool:
+        return self.package_installed and path.name.lower().endswith(".yaml")
 
-    def read_dict(self, path, encoding):
+    def read_dict(self, path: pathlib.Path, encoding: str) -> t.Mapping:
         import yaml
         with open(path, "r", encoding=encoding) as h:
             obj = yaml.safe_load(h)
@@ -24,7 +40,7 @@ class YamlConfigParser:
             return {}
 
 
-class TomlConfigParser:
+class TomlConfigParser(GenericParser):
 
     def __init__(self):
         self.package_lib = None
@@ -33,24 +49,26 @@ class TomlConfigParser:
         elif importlib.util.find_spec("toml") is not None:
             self.package_lib = "third-party"
 
-    def handles(self, path: str):
-        return self.package_lib is not None and path.lower().endswith(".toml")
+    def handles(self, path: pathlib.Path) -> bool:
+        return self.package_lib is not None and path.name.lower().endswith(".toml")
 
-    def read_dict(self, path, encoding):
+    def read_dict(self, path: pathlib.Path, encoding: str) -> t.Mapping:
         if self.package_lib == "core":
             import tomllib
         elif self.package_lib == "third-party":
             import toml as tomllib
+        else:
+            return {}
         with open(path, "r", encoding=encoding) as h:
             return tomllib.loads(h.read())
 
 
-class JsonConfigParser:
+class JsonConfigParser(GenericParser):
 
-    def handles(self, path: str):
-        return path.lower().endswith(".json")
+    def handles(self, path: pathlib.Path) -> bool:
+        return path.name.lower().endswith(".json")
 
-    def read_dict(self, path, encoding: str):
+    def read_dict(self, path: pathlib.Path, encoding: str) -> t.Mapping:
         with open(path, "r", encoding=encoding) as h:
             data = h.read()
             if data == "":
@@ -63,15 +81,15 @@ class JsonConfigParser:
             return {}
 
 
-class IniConfigParser:
+class IniConfigParser(GenericParser):
 
     def __init__(self, global_section=None):
         self.global_section = global_section if global_section else 'DEFAULT'
 
-    def handles(self, path):
-        return path.lower().endswith(".ini")
+    def handles(self, path: pathlib.Path) -> bool:
+        return path.name.lower().endswith(".ini")
 
-    def read_dict(self, path, encoding: str):
+    def read_dict(self, path: pathlib.Path, encoding: str) -> t.Mapping:
         p = configparser.ConfigParser(default_section=self.global_section)
         with open(path, "r", encoding=encoding) as h:
             p.read_file(h)
@@ -83,8 +101,8 @@ class CfgConfigParser(IniConfigParser):
     def __init__(self):
         super().__init__("global")
 
-    def handles(self, path):
-        return path.lower().endswith(".cfg")
+    def handles(self, path: pathlib.Path):
+        return path.name.lower().endswith(".cfg")
 
 
 class DbConfigParser:

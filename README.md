@@ -111,6 +111,7 @@ def with_config(config: zirconium.ApplicationConfig = None):
 
 ```python 
 import zirconium
+from autoinject import injector, auto
 
 @zirconium.configure 
 def add_config(config):
@@ -136,9 +137,9 @@ def add_config(config):
     
 
 @injector.inject 
-def show_examples(config: zirconium.ApplicationConfig = None):
+def show_examples(config: zirconium.ApplicationConfig = auto()):
     config.as_bytes("bytes_example")                # 5120 (int)
-    config.as_timedelta("timedelta_example)         # datetime.timedelta(minutes=5)
+    config.as_timedelta("timedelta_example")         # datetime.timedelta(minutes=5)
     config.as_date("date_example")                  # datetime.date(2023, 5, 5)
     config.as_datetime("datetime_example")          # datetime.datetime(2023, 5, 5, 17, 5, 5)
     config.as_int("int_example")                    # 5 (int)
@@ -193,13 +194,7 @@ import unittest
 
 class MyTestCase(unittest.TestCase):
 
-  # This is essential since we use autoinject's test_case() to handle the ApplicationConfig fixture
-  @injector.test_case 
-  # Declare a single value
-  @zr.test_with_config(("foo", "bar"), "hello world")
-  # You can repeat the decorator to declare multiple values
-  @zr.test_with_config(("some", "value"), "what")
-  # You can also pass a dict instead of a key, value tuple
+  # pass configuration
   @zr.test_with_config({
     "foo": {
       "bar2": "hello world #2"
@@ -218,6 +213,11 @@ Note that this pattern replaces all configuration values with the ones declared 
 values will not be passed into your test function nor will they be passed between test functions.
 
 ## Change Log
+
+### Version 1.3.0
+- Test cases now work with autoinject 2.0.0
+- The various `as_X()` methods should now provide proper type-hinting when a `default` value is passed.
+- Various clean-up items
 
 ### Version 1.2.1
 - Test cases can now use the fixture `@zirconium.test_with_config(key: t.Iterable, value: t.Any)` to inject test 

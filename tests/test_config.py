@@ -10,15 +10,17 @@ import zirconium
 
 class TestConfig(unittest.TestCase):
 
-    @injector.test_case()
-    @zirconium.test_with_config(("foo", "bar"), "hello world")
-    @zirconium.test_with_config(("foo", "bar"), "hello world2")
-    @zirconium.test_with_config(("foo", "bar2"), "zoink")
-    @zirconium.test_with_config({"foo": {"bar3": "hello world3"}})
+    @zirconium.test_with_config({
+        "foo": {
+            "bar": "hello world2",
+            "bar2": "zoink",
+            "bar3": "hello world3",
+        }
+    })
     def test_test_case(self):
         @injector.inject
         def _test_inject(cfg: zirconium.ApplicationConfig = None):
-            self.assertEqual(cfg.get(("foo", "bar")), "hello world")
+            self.assertEqual(cfg.get(("foo", "bar")), "hello world2")
             self.assertEqual(cfg.get(("foo", "bar2")), "zoink")
             self.assertEqual(cfg.get(("foo", "bar3")), "hello world3")
         _test_inject()
@@ -31,6 +33,7 @@ class TestConfig(unittest.TestCase):
             "TWO": ("var", "two")
         })
         config.init()
+        self.assertEqual(config.as_str("var", "one"), "1")
         self.assertEqual(config.as_str(("var", "one")), "1")
         self.assertIsNone(config.as_str(("var", "two"), default=None))
 
@@ -180,20 +183,20 @@ class TestConfig(unittest.TestCase):
     def test_get_ref(self):
         config = zirconium.ApplicationConfig(True)
         config.set_defaults({
-            1: "one"
+            "1": "one"
         })
         config.init()
-        r = config.get_ref(1)
+        r = config.get_ref("1")
         self.assertIsInstance(r, zirconium.config._ConfigRef)
         self.assertEqual(r.raw_value(), "one")
         self.assertEqual(r.raw_value(), "one")
         config.load_from_dict({
-            1: "two"
+            "1": "two"
         })
         self.assertEqual(r.raw_value(), "one")
         config.reload_config()
         config.load_from_dict({
-            1: "two"
+            "1": "two"
         })
         self.assertEqual(r.raw_value(), "two")
 
