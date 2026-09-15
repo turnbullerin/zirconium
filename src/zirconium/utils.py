@@ -1,9 +1,9 @@
 import threading
-from autoinject import injector
 import datetime
 import typing as t
 from urllib.parse import urlparse
 
+from autoinject import injector
 
 BYTE_UNITS = {
     # Bits

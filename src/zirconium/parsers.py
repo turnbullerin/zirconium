@@ -2,7 +2,7 @@ import logging
 import json
 import configparser
 import importlib.util
-from .utils import MutableDeepDict
+from zirconium.utils import MutableDeepDict
 import sys
 
 

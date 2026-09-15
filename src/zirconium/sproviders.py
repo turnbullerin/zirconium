@@ -1,5 +1,7 @@
 import logging
+
 from urllib.parse import urlparse
+
 try:
     from azure.identity import DefaultAzureCredential
     from azure.keyvault.secrets import SecretClient
